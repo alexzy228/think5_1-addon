@@ -1,0 +1,13 @@
+{
+    "name": "alexzy228/think5_1-addon",
+    "description": "addons for ThinkPHP5.1+",
+    "type": "library",
+    "authors": [
+        {
+            "name": "alexzy",
+            "email": "1003057931@qq.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}
