@@ -4,141 +4,48 @@
  * Date: 2020-04-24
  */
 
-use think\Loader;
-use think\facade\Hook;
-use think\facade\Route;
-use think\facade\App;
-use think\facade\Cache;
-use think\facade\Config;
 
 // 插件目录
 define('ADDON_PATH', \think\facade\Env::get('root_path') . 'addons' . DIRECTORY_SEPARATOR);
 
-// 定义路由
-Route::any('addons/:addon/[:controller]/[:action]', "\\think\\addons\\Route@execute");
+// 定义直接执行插件方法的路由
+\think\facade\Route::any('addons/:addon/[:controller]/[:action]', "\\think\\addons\\Route@execute");
 
 // 如果插件目录不存在则创建
 if (!is_dir(ADDON_PATH)) {
     @mkdir(ADDON_PATH, 0755, true);
 }
 
-// 监听addon_init
-Hook::listen('addon_init');
-
-// 闭包自动识别插件目录配置
-Hook::add('app_init', function () {
-    // 获取开关
-    $autoload = (bool)Config::get('addons.autoload', false);
-    // 非正是返回
-    if (!$autoload) {
-        return;
-    }
-    // 当debug时不缓存配置
-    $config = App::$debug ? [] : Cache::get('addons', []);
-    if (empty($config)) {
-        $config = get_addon_autoload_config();
-        Cache::set('addons', $config);
-    }
-});
-
-//闭包初始化
-Hook::add('app_init',function (){
-    //注册路由
-    $routeArr = (array)Config::get('addons.route');
-    $domains = [];
-    $rules = [];
-    $execute = "\\think\\addons\\Route@execute?addon=%s&controller=%s&action=%s";
-//    foreach ($routeArr as $k => $v) {
-//        if (is_array($v)) {
-//            $addon = $v['addon'];
-//            $domain = $v['domain'];
-//            $drules = [];
-//            foreach ($v['rule'] as $m => $n) {
-//                list($addon, $controller, $action) = explode('/', $n);
-//                $drules[$m] = sprintf($execute . '&indomain=1', $addon, $controller, $action);
-//            }
-//            //$domains[$domain] = $drules ? $drules : "\\addons\\{$k}\\controller";
-//            $domains[$domain] = $drules ? $drules : [];
-//            $domains[$domain][':controller/[:action]'] = sprintf($execute . '&indomain=1', $addon, ":controller", ":action");
-//        } else {
-//            if (!$v)
-//                continue;
-//            list($addon, $controller, $action) = explode('/', $v);
-//            $rules[$k] = sprintf($execute, $addon, $controller, $action);
-//        }
-//    }
-//    Route::rule($rules);
-//    if ($domains) {
-//        Route::domain($domains);
-//    }
-
-    // 获取系统配置
-    $hooks = App::isDebug() ? [] : Cache::get('hooks', []);
-    if (empty($hooks)) {
-        $hooks = (array)Config::get('addons.hooks');
-        // 初始化钩子
-        foreach ($hooks as $key => $values) {
-            if (is_string($values)) {
-                $values = explode(',', $values);
-            } else {
-                $values = (array)$values;
-            }
-            $hooks[$key] = array_filter(array_map('get_addon_class', $values));
-        }
-        Cache::set('hooks', $hooks);
-    }
-    //如果在插件中有定义app_init，则直接执行
-    if (isset($hooks['app_init'])) {
-        foreach ($hooks['app_init'] as $k => $v) {
-            Hook::exec($v, 'app_init');
-        }
-    }
-    Hook::import($hooks, true);
-
-});
-
-/**
- * 获得插件自动加载的配置(暂停)
- * @param bool $truncate 是否清除手动配置的钩子
- * @return array
- */
-function get_addon_autoload_config($truncate = false)
-{
-    // 读取addons的配置
-    $config = (array)Config::get('addons.');
-    if ($truncate) {
-        // 清空手动配置的钩子
-        $config['hooks'] = [];
-    }
-    $route = [];
-
-    // 读取插件目录及钩子列表
-    $base = get_class_methods("\\think\\Addons");
-    $base = array_merge($base, ['install', 'uninstall', 'enable', 'disable']);
-
-}
-
 // 注册类的根命名空间
-Loader::addNamespace('addons', ADDON_PATH);
+\think\Loader::addNamespace('addons', ADDON_PATH);
+
+// 监听addon_init 插件初始化
+\think\facade\Hook::listen('addon_init');
+
 /**
- * 获取插件类的类名
- * @param string $name 插件名
- * @param string $type 返回命名空间类型
- * @param string $class 当前类名
+ * 获取插件命名空间
+ * @param $name
+ * @param string $type
+ * @param null $class
  * @return string
  */
 function get_addon_class($name, $type = 'hook', $class = null)
 {
-    $name = Loader::parseName($name);
-    // 处理多级控制器情况
+    //字符串命名风格转换
+    $name = \think\Loader::parseName($name);
+    //多级控制器，class不为null 且 包含 .
     if (!is_null($class) && strpos($class, '.')) {
+        //分割class
         $class = explode('.', $class);
-
-        $class[count($class) - 1] = Loader::parseName(end($class), 1);
+        //将最后一个字符串转换明明风格
+        $class[count($class) - 1] = \think\Loader::parseName(end($class), 1);
+        //重新组合为字符串
         $class = implode('\\', $class);
     } else {
-        $class = Loader::parseName(is_null($class) ? $name : $class, 1);
+        //转换明明风格
+        $class = \think\Loader::parseName(is_null($class) ? $name : $class, 1);
     }
+    //获取命名空间
     switch ($type) {
         case 'controller':
             $namespace = "\\addons\\" . $name . "\\controller\\" . $class;
@@ -150,9 +57,9 @@ function get_addon_class($name, $type = 'hook', $class = null)
 }
 
 /**
- * 获取插件的单例
- * @param string $name 插件名
- * @return \think\Addons|null
+ * 获取插件单例
+ * @param $name
+ * @return \think\Addons|mixed
  */
 function get_addon_instance($name)
 {
@@ -170,12 +77,20 @@ function get_addon_instance($name)
 }
 
 /**
- * 获取插件类的配置值值
- * @param string $name 插件名
+ * 获取插件基础信息
+ * @param $name
  * @return array
  */
-function get_addon_config($name)
+function get_addon_info($name)
 {
+    $addon = get_addon_instance($name);
+    if (!$addon) {
+        return [];
+    }
+    return $addon->getInfo($name);
+}
+
+function get_addon_config($name){
     $addon = get_addon_instance($name);
     if (!$addon) {
         return [];
@@ -183,3 +98,28 @@ function get_addon_config($name)
     return $addon->getConfig($name);
 }
 
+function addon_url($url, $vars = [], $suffix = true, $domain = false)
+{
+    //去掉左边多余 /
+    $url = ltrim($url, '/');
+    //获取插件名称
+    $addon = substr($url, 0, stripos($url, '/'));
+    //url参数字符串转换为数组
+    if (!is_array($vars)) {
+        parse_str($vars, $params);
+        $vars = $params;
+    }
+    //筛选出：开头的参数
+    $params = [];
+    foreach ($vars as $k => $v) {
+        if (substr($k, 0, 1) === ':') {
+            $params[$k] = $v;
+            unset($vars[$k]);
+        }
+    }
+    $val = "@addons/{$url}";
+    $config = get_addon_config($addon);
+
+    $url = url($val, $vars, $suffix, $domain);
+    return $url;
+}
