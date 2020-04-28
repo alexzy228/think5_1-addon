@@ -22,6 +22,29 @@ if (!is_dir(ADDON_PATH)) {
 // 监听addon_init 插件初始化
 \think\facade\Hook::listen('addon_init');
 
+\think\facade\Hook::add('app_init', function () {
+    $hooks = \think\facade\App::isDebug() ? [] : \think\facade\Cache::get('hooks.', []);
+    if (empty($hooks)) {
+        $hooks = \think\facade\Config::get('addons.hooks');
+        // 初始化钩子
+        foreach ($hooks as $key => $values) {
+            if (is_string($values)) {
+                $values = explode(',', $values);
+            } else {
+                $values = (array)$values;
+            }
+            $hooks[$key] = array_filter(array_map('get_addon_class', $values));
+        }
+        \think\facade\Cache::set('hooks', $hooks);
+    }
+    //如果在插件中有定义app_init，则直接执行
+    if (isset($hooks['app_init'])) {
+        foreach ($hooks['app_init'] as $k => $v) {
+            \think\facade\Hook::exec($v, 'app_init');
+        }
+    }
+    \think\facade\Hook::import($hooks, true);
+});
 /**
  * 获取插件命名空间
  * @param $name
@@ -90,7 +113,8 @@ function get_addon_info($name)
     return $addon->getInfo($name);
 }
 
-function get_addon_config($name){
+function get_addon_config($name)
+{
     $addon = get_addon_instance($name);
     if (!$addon) {
         return [];
