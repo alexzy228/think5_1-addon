@@ -113,6 +113,11 @@ function get_addon_info($name)
     return $addon->getInfo($name);
 }
 
+/**
+ * 获取插件配置信息
+ * @param $name
+ * @return array|mixed
+ */
 function get_addon_config($name)
 {
     $addon = get_addon_instance($name);
@@ -122,6 +127,14 @@ function get_addon_config($name)
     return $addon->getConfig($name);
 }
 
+/**
+ * 获取url 方法
+ * @param $url
+ * @param array $vars
+ * @param bool $suffix
+ * @param bool $domain
+ * @return string
+ */
 function addon_url($url, $vars = [], $suffix = true, $domain = false)
 {
     //去掉左边多余 /
@@ -146,4 +159,29 @@ function addon_url($url, $vars = [], $suffix = true, $domain = false)
 
     $url = url($val, $vars, $suffix, $domain);
     return $url;
+}
+
+function get_addon_list(){
+    $result = scandir(ADDON_PATH);
+    $list = [];
+    foreach ($result as $name){
+        if ($name === '.' or $name === '..')
+            continue;
+        if (is_file(ADDON_PATH . $name))
+            continue;
+        $addonDir = ADDON_PATH . $name . DIRECTORY_SEPARATOR;
+        if (!is_dir($addonDir))
+            continue;
+        if (!is_file($addonDir . ucfirst($name) . '.php'))
+            continue;
+        $info_file = $addonDir . 'info.ini';
+        if (!is_file($info_file))
+            continue;
+        $info = \think\facade\Config::parse($info_file, '', "addon-info-{$name}");
+        if (!isset($info['name']))
+            continue;
+        $info['url'] = addon_url($name);
+        $list[$name] = $info;
+    }
+    return $list;
 }

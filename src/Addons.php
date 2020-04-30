@@ -26,6 +26,7 @@ abstract class Addons
     // 插件目录
     public $addons_path = '';
 
+    public $view;
     /**
      * 获取当前插件名
      * @return string
@@ -49,7 +50,7 @@ abstract class Addons
         $config = ['view_path' => $this->addons_path];
         //合并配置文件
         $config = array_merge(\think\facade\Config::get('template.'), $config);
-        \think\facade\View::init($config, \think\facade\Config::get('template.tpl_replace_string'));
+        $this->view = new View($config, \think\facade\Config::get('template.tpl_replace_string'));
 
         if (method_exists($this, 'initialize')) {
             $this->initialize();
@@ -89,6 +90,7 @@ abstract class Addons
         if (empty($name)) {
             $name = $this->getName();
         }
+
         $config = \think\facade\Config::get($this->configRange . $name);
         if ($config) {
             return $config;
@@ -101,7 +103,8 @@ abstract class Addons
             }
             unset($temp_arr);
         }
-        \think\facade\Config::set($this->configRange . $name);
+        \think\facade\Config::set($this->configRange . $name,$config);
+
         return $config;
     }
 
@@ -121,7 +124,7 @@ abstract class Addons
         if (!is_file($template)) {
             $template = '/' . $template;
         }
-        echo \think\facade\View::fetch($template, $vars, $config);
+        echo $this->view->fetch($template, $vars, $config);
     }
 
     /**
@@ -135,7 +138,7 @@ abstract class Addons
      */
     public function display($content, $vars = [], $config = [])
     {
-        echo \think\facade\View::display($content, $vars, $config);
+        echo $this->view->display($content, $vars, $config);
     }
 
     /**
@@ -145,7 +148,7 @@ abstract class Addons
      */
     public function show($content, $vars = [])
     {
-        echo \think\facade\View::fetch($content, $vars, [], true);
+        echo $this->view->fetch($content, $vars, [], true);
     }
 
     /**
@@ -157,7 +160,7 @@ abstract class Addons
      */
     public function assign($name, $value = '')
     {
-        echo \think\facade\View::assign($name, $value);
+        echo $this->view->assign($name, $value);
     }
 
     /**
