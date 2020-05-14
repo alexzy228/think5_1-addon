@@ -44,7 +44,6 @@ class Route
             \think\facade\Hook::listen('addon_module_init');
             //获取控制器类
             $class = get_addon_class($addon, 'controller', $controller);
-
             if (!$class) {
                 throw new \think\exception\HttpException(404, '插件控制器' . \think\Loader::parseName($controller, 1) . '不存在');
             }

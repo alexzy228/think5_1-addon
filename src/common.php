@@ -128,6 +128,43 @@ function get_addon_config($name)
 }
 
 /**
+ * 获取插件类的配置数组
+ * @param string $name 插件名
+ * @return array
+ */
+function get_addon_fullconfig($name)
+{
+    $addon = get_addon_instance($name);
+    if (!$addon) {
+        return [];
+    }
+    return $addon->getFullConfig($name);
+}
+
+/**
+ * 写入配置文件
+ *
+ * @param string $name 插件名
+ * @param array $array
+ * @return boolean
+ * @throws Exception
+ */
+function set_addon_fullconfig($name, $array)
+{
+    $file = ADDON_PATH . $name . DIRECTORY_SEPARATOR . 'config.php';
+    if (!is_really_writable($file)) {
+        throw new Exception("文件没有写入权限");
+    }
+    if ($handle = fopen($file, 'w')) {
+        fwrite($handle, "<?php\n\n" . "return " . var_export($array, TRUE) . ";\n");
+        fclose($handle);
+    } else {
+        throw new Exception("文件没有写入权限");
+    }
+    return true;
+}
+
+/**
  * 获取url 方法
  * @param $url
  * @param array $vars

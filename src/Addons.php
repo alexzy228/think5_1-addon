@@ -108,6 +108,24 @@ abstract class Addons
         return $config;
     }
 
+    /**
+     * 获取完整配置列表
+     * @param string $name
+     * @return array
+     */
+    final public function getFullConfig($name = '')
+    {
+        $fullConfigArr = [];
+        if (empty($name)) {
+            $name = $this->getName();
+        }
+        $config_file = $this->addons_path . 'config.php';
+        if (is_file($config_file)) {
+            $fullConfigArr = include $config_file;
+        }
+        return $fullConfigArr;
+    }
+
 
     /**
      * 加载模板和页面输出 可以返回输出内容
