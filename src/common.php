@@ -23,9 +23,29 @@ if (!is_dir(ADDON_PATH)) {
 \think\facade\Hook::listen('addon_init');
 
 \think\facade\Hook::add('app_init', function () {
-    $hooks = \think\facade\App::isDebug() ? [] : \think\facade\Cache::get('hooks.', []);
+    // 获取开关
+    $autoload = (bool)\think\facade\Config::get('addons.autoload', false);
+    // 非正是返回
+    if (!$autoload) {
+        return;
+    }
+    // 当debug时不缓存配置
+    $config = \think\facade\App::isDebug() ? [] : \think\facade\Cache::get('addons', []);
+    if (empty($config)) {
+        $config = get_addon_autoload_config();
+        \think\facade\Cache::set('addons', $config);
+    }
+    \think\facade\Config::set('addons',$config);
+});
+
+\think\facade\Hook::add('app_init', function () {
+    //省略路由
+
+    //获取系统配置
+    $hooks = \think\facade\App::isDebug() ? [] : \think\facade\Cache::get('hooks', []);
     if (empty($hooks)) {
-        $hooks = \think\facade\Config::get('addons.hooks');
+        $hooks = \think\facade\Config::get('addons');
+        $hooks = isset($hooks['hooks']) ? $hooks['hooks'] : [];
         // 初始化钩子
         foreach ($hooks as $key => $values) {
             if (is_string($values)) {
@@ -45,6 +65,46 @@ if (!is_dir(ADDON_PATH)) {
     }
     \think\facade\Hook::import($hooks, true);
 });
+
+function get_addon_autoload_config($truncate = false)
+{
+    //读取addons 的配置
+    $config = \think\facade\Config::get('addons.');
+    //是否清空手动配置钩子
+    if ($truncate) {
+        $config['hooks'] = [];
+    }
+
+    //读取插件目录及钩子列表
+    $base = get_class_methods('\\think\\Addons');
+    $base = array_merge($base, ['install', 'uninstall', 'enable', 'disable']);
+
+    $addons = get_addon_list();
+    foreach ($addons as $name => $addon) {
+        //状态为关闭不加载
+        if (!$addon['state'])
+            continue;
+        // 读取出所有公共方法
+        $methods = (array)get_class_methods("\\addons\\" . $name . "\\" . ucfirst($name));
+        // 跟插件基类方法做比对，得到差异结果
+        $hooks = array_diff($methods, $base);
+        foreach ($hooks as $hook) {
+            $hook = \think\Loader::parseName($hook, 0, false);
+            if (!isset($config['hooks'][$hook])){
+                $config['hooks'][$hook] = [];
+            }
+            // 兼容手动配置项
+            if (is_string($config['hooks'][$hook])) {
+                $config['hooks'][$hook] = explode(',', $config['hooks'][$hook]);
+            }
+            if (!in_array($name, $config['hooks'][$hook])) {
+                $config['hooks'][$hook][] = $name;
+            }
+        }
+    }
+    return $config;
+}
+
 /**
  * 获取插件命名空间
  * @param $name
@@ -198,10 +258,11 @@ function addon_url($url, $vars = [], $suffix = true, $domain = false)
     return $url;
 }
 
-function get_addon_list(){
+function get_addon_list()
+{
     $result = scandir(ADDON_PATH);
     $list = [];
-    foreach ($result as $name){
+    foreach ($result as $name) {
         if ($name === '.' or $name === '..')
             continue;
         if (is_file(ADDON_PATH . $name))
